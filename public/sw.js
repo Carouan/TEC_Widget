@@ -1,8 +1,9 @@
-const CACHE_NAME = 'tec-widget-v0.2.0';
+const CACHE_NAME = 'tec-widget-v0.3.0';
 const APP_SHELL = [
   './',
   './index.html',
   './src/main.js',
+  './src/planner.js',
   './src/config.js',
   './src/styles.css',
   './manifest.webmanifest'

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#111827" />
-  <meta name="description" content="Affiche les prochains passages TEC pour vos trajets favoris." />
+  <meta name="description" content="Affiche intelligemment les prochains passages TEC pour vos trajets favoris." />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="stylesheet" href="./src/styles.css" />
   <title>TEC Widget</title>
@@ -20,36 +20,92 @@
         <time id="current-time" class="clock" aria-live="polite"></time>
       </header>
 
+      <div class="mode-row">
+        <span id="mode-badge" class="mode-badge">Auto</span>
+        <button id="reset-auto" class="text-button" type="button">Revenir en mode intelligent</button>
+      </div>
+
       <div class="route-summary">
         <div>
+          <p id="favorite-name" class="favorite-name"></p>
           <p id="stop-name" class="stop-name"></p>
           <p class="route-line"><span id="route-number" class="route-badge"></span><span id="direction"></span></p>
         </div>
-        <button id="swap-route" class="swap-button" type="button" aria-label="Afficher l'autre trajet">⇄</button>
+        <button id="swap-route" class="swap-button" type="button" aria-label="Afficher le trajet favori suivant">⇄</button>
       </div>
 
-      <div class="display-controls" aria-label="Réglages d’affichage">
-        <label class="control-field" for="reference-hour">
-          <span>À partir de</span>
-          <select id="reference-hour">
-            <option value="now">Maintenant</option>
-          </select>
+      <p id="context-label" class="context-label" aria-live="polite"></p>
+
+      <div class="quick-controls" aria-label="Date de consultation">
+        <button type="button" class="chip active" data-date-mode="auto">Auto</button>
+        <button type="button" class="chip" data-date-mode="today">Aujourd’hui</button>
+        <button type="button" class="chip" data-date-mode="tomorrow">Demain</button>
+        <label class="date-picker chip" title="Choisir une date">
+          <span>📅</span>
+          <input id="custom-date" type="date" aria-label="Choisir une date" />
         </label>
-        <label class="control-field" for="departure-count">
-          <span>Passages</span>
-          <select id="departure-count">
-            <option value="2">2</option>
-            <option value="3" selected>3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
-        </label>
+      </div>
+
+      <div class="quick-controls period-controls" aria-label="Période de consultation">
+        <button type="button" class="chip active" data-period="auto">Auto</button>
+        <button type="button" class="chip" data-period="now">Maintenant</button>
+        <button type="button" class="chip" data-period="morning">Matin</button>
+        <button type="button" class="chip" data-period="afternoon">Après-midi</button>
+        <button type="button" class="chip" data-period="hour">Heure…</button>
+      </div>
+
+      <div id="advanced-hour" class="advanced-hour" hidden>
+        <label for="reference-hour">À partir de</label>
+        <select id="reference-hour"></select>
       </div>
 
       <ol id="departures" class="departures" aria-live="polite"></ol>
-      <p id="data-status" class="status-line" aria-live="polite">Chargement des horaires…</p>
+
+      <footer class="widget-footer">
+        <p id="data-status" class="status-line" aria-live="polite">Chargement des horaires…</p>
+        <div class="footer-actions">
+          <button id="open-trips" type="button" class="icon-button">Mes trajets</button>
+          <button id="open-settings" type="button" class="icon-button" aria-label="Réglages">⚙</button>
+        </div>
+      </footer>
     </section>
   </main>
+
+  <dialog id="settings-dialog" class="panel-dialog">
+    <form method="dialog" class="panel-content">
+      <div class="panel-header">
+        <h2>Affichage</h2>
+        <button value="cancel" class="close-button" aria-label="Fermer">×</button>
+      </div>
+      <label class="setting-row" for="departure-count">
+        <span>Nombre de prochains passages</span>
+        <select id="departure-count">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </label>
+    </form>
+  </dialog>
+
+  <dialog id="trips-dialog" class="panel-dialog trips-dialog">
+    <form id="trips-form" method="dialog" class="panel-content">
+      <div class="panel-header">
+        <div>
+          <h2>Mes trajets</h2>
+          <p>Les arrêts disponibles correspondent aux profils GTFS actuellement préparés.</p>
+        </div>
+        <button value="cancel" class="close-button" aria-label="Fermer">×</button>
+      </div>
+      <div id="favorite-editor" class="favorite-editor"></div>
+      <button id="add-favorite" type="button" class="secondary-button">+ Ajouter un trajet</button>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-button">Annuler</button>
+        <button id="save-favorites" value="default" class="primary-button">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="./src/main.js"></script>
 </body>
