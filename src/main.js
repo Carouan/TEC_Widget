@@ -7,9 +7,19 @@ const departures = document.querySelector('#departures');
 const clock = document.querySelector('#current-time');
 const swapButton = document.querySelector('#swap-route');
 const dataStatus = document.querySelector('#data-status');
+const referenceHourSelect = document.querySelector('#reference-hour');
+const departureCountSelect = document.querySelector('#departure-count');
+
+const STORAGE_KEYS = {
+  referenceHour: 'tec-widget.reference-hour',
+  departureCount: 'tec-widget.departure-count'
+};
 
 let forcedProfileId = null;
 let scheduleData = null;
+let referenceHour = localStorage.getItem(STORAGE_KEYS.referenceHour) || 'now';
+let departureCount = Number(localStorage.getItem(STORAGE_KEYS.departureCount)) || 3;
+if (departureCount < 2 || departureCount > 5) departureCount = 3;
 
 function toMinutes(value) {
   const [hours, minutes] = value.split(':').map(Number);
@@ -51,29 +61,76 @@ function getActiveProfile(now = new Date()) {
   return forcedProfileId ? commuteProfiles[forcedProfileId] : getAutomaticProfile(now);
 }
 
-function minutesUntil(time, now = new Date()) {
+function getReferenceDate(now = new Date()) {
+  if (referenceHour === 'now') return now;
+  const selected = new Date(now);
+  selected.setHours(Number(referenceHour), 0, 0, 0);
+  return selected;
+}
+
+function minutesUntil(time, referenceDate) {
   const [hours, minutes] = time.split(':').map(Number);
-  const current = now.getHours() * 60 + now.getMinutes();
+  const current = referenceDate.getHours() * 60 + referenceDate.getMinutes();
   return Math.max(0, hours * 60 + minutes - current);
 }
 
-function getTimes(profile, now) {
-  if (!scheduleData?.profiles?.[profile.id]) return profile.demoDepartures.slice(0, 3);
-  const current = now.getHours() * 60 + now.getMinutes();
+function getProfileDepartures(profile, date) {
+  if (!scheduleData?.profiles?.[profile.id]) {
+    return profile.demoDepartures.map((time) => ({ time, service_id: null }));
+  }
+
   return scheduleData.profiles[profile.id]
-    .filter((item) => isServiceActive(item.service_id, now) && toMinutes(item.time) >= current)
-    .slice(0, 3)
+    .filter((item) => isServiceActive(item.service_id, date));
+}
+
+function getAvailableHours(profile, now) {
+  const hours = getProfileDepartures(profile, now)
+    .map((item) => Number(item.time.split(':')[0]))
+    .filter((hour) => Number.isInteger(hour) && hour >= 0 && hour <= 23);
+
+  if (!hours.length) return [];
+  const first = Math.min(...hours);
+  const last = Math.max(...hours);
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index);
+}
+
+function syncReferenceHourOptions(profile, now) {
+  const availableHours = getAvailableHours(profile, now);
+  const options = [new Option('Maintenant', 'now')];
+  for (const hour of availableHours) {
+    options.push(new Option(`${String(hour).padStart(2, '0')}h`, String(hour)));
+  }
+  referenceHourSelect.replaceChildren(...options);
+
+  const validValues = new Set(options.map((option) => option.value));
+  if (!validValues.has(referenceHour)) {
+    referenceHour = 'now';
+    localStorage.setItem(STORAGE_KEYS.referenceHour, referenceHour);
+  }
+  referenceHourSelect.value = referenceHour;
+}
+
+function getTimes(profile, now) {
+  const referenceDate = getReferenceDate(now);
+  const threshold = referenceDate.getHours() * 60 + referenceDate.getMinutes();
+  return getProfileDepartures(profile, now)
+    .filter((item) => toMinutes(item.time) >= threshold)
+    .slice(0, departureCount)
     .map((item) => item.time.slice(0, 5));
 }
 
-function buildDepartureItem(time, now) {
+function buildDepartureItem(time, referenceDate) {
   const item = document.createElement('li');
   const timeElement = document.createElement('strong');
   const waitElement = document.createElement('span');
-  const wait = minutesUntil(time, now);
+  const wait = minutesUntil(time, referenceDate);
 
   timeElement.textContent = time;
-  waitElement.textContent = wait === 0 ? 'maintenant' : `dans ${wait} min`;
+  if (referenceHour === 'now') {
+    waitElement.textContent = wait === 0 ? 'maintenant' : `dans ${wait} min`;
+  } else {
+    waitElement.textContent = `+ ${wait} min`;
+  }
   item.append(timeElement, waitElement);
   return item;
 }
@@ -81,6 +138,10 @@ function buildDepartureItem(time, now) {
 function render() {
   const now = new Date();
   const profile = getActiveProfile(now);
+  syncReferenceHourOptions(profile, now);
+  departureCountSelect.value = String(departureCount);
+
+  const referenceDate = getReferenceDate(now);
   const times = getTimes(profile, now);
 
   clock.textContent = now.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
@@ -89,10 +150,12 @@ function render() {
   direction.textContent = `→ ${profile.direction}`;
 
   if (times.length) {
-    departures.replaceChildren(...times.map((time) => buildDepartureItem(time, now)));
+    departures.replaceChildren(...times.map((time) => buildDepartureItem(time, referenceDate)));
   } else {
     const empty = document.createElement('li');
-    empty.textContent = 'Aucun passage planifié restant aujourd’hui.';
+    empty.textContent = referenceHour === 'now'
+      ? 'Aucun passage planifié restant aujourd’hui.'
+      : `Aucun passage planifié à partir de ${String(referenceHour).padStart(2, '0')}:00 aujourd’hui.`;
     departures.replaceChildren(empty);
   }
 
@@ -116,6 +179,18 @@ async function loadSchedules() {
 swapButton.addEventListener('click', () => {
   const currentId = getActiveProfile().id;
   forcedProfileId = currentId === 'outbound' ? 'inbound' : 'outbound';
+  render();
+});
+
+referenceHourSelect.addEventListener('change', () => {
+  referenceHour = referenceHourSelect.value;
+  localStorage.setItem(STORAGE_KEYS.referenceHour, referenceHour);
+  render();
+});
+
+departureCountSelect.addEventListener('change', () => {
+  departureCount = Number(departureCountSelect.value);
+  localStorage.setItem(STORAGE_KEYS.departureCount, String(departureCount));
   render();
 });
 

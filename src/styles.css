@@ -42,7 +42,8 @@ button, input, select { font: inherit; }
 }
 
 .eyebrow,
-.status-line {
+.status-line,
+.control-field span {
   color: #64748b;
   font-size: 0.8rem;
 }
@@ -65,7 +66,7 @@ h1 {
 }
 
 .route-summary {
-  margin: 1.25rem 0;
+  margin: 1.25rem 0 0;
   padding-bottom: 1rem;
   border-bottom: 1px solid #e2e8f0;
 }
@@ -106,9 +107,34 @@ h1 {
   cursor: pointer;
 }
 
-.swap-button:focus-visible {
+.swap-button:focus-visible,
+select:focus-visible {
   outline: 3px solid #94a3b8;
   outline-offset: 2px;
+}
+
+.display-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.control-field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.control-field select {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.35rem 2rem 0.35rem 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .departures {
@@ -135,6 +161,12 @@ h1 {
   margin: 1rem 0 0;
 }
 
+@media (max-width: 380px) {
+  .display-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     background: #020617;
@@ -150,19 +182,22 @@ h1 {
   }
 
   .route-summary,
+  .display-controls,
   .departures li { border-color: #263244; }
 
   .route-line,
   .departures span,
   .eyebrow,
-  .status-line { color: #94a3b8; }
+  .status-line,
+  .control-field span { color: #94a3b8; }
 
   .route-badge {
     background: #e5e7eb;
     color: #111827;
   }
 
-  .swap-button {
+  .swap-button,
+  .control-field select {
     background: #111827;
     border-color: #334155;
     color: #e5e7eb;
