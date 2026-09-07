@@ -6,12 +6,34 @@ const direction = document.querySelector('#direction');
 const departures = document.querySelector('#departures');
 const clock = document.querySelector('#current-time');
 const swapButton = document.querySelector('#swap-route');
+const dataStatus = document.querySelector('#data-status');
 
 let forcedProfileId = null;
+let scheduleData = null;
 
 function toMinutes(value) {
   const [hours, minutes] = value.split(':').map(Number);
   return hours * 60 + minutes;
+}
+
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
+
+function isServiceActive(serviceId, date) {
+  if (!scheduleData) return false;
+  const key = dateKey(date);
+  const exception = scheduleData.exceptions?.[serviceId]?.[key];
+  if (exception === 1) return true;
+  if (exception === 2) return false;
+
+  const service = scheduleData.services?.[serviceId];
+  if (!service || key < service.start_date || key > service.end_date) return false;
+  const fields = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  return service[fields[date.getDay()]] === '1';
 }
 
 function getAutomaticProfile(now = new Date()) {
@@ -30,11 +52,18 @@ function getActiveProfile(now = new Date()) {
 }
 
 function minutesUntil(time, now = new Date()) {
-  const target = new Date(now);
   const [hours, minutes] = time.split(':').map(Number);
-  target.setHours(hours, minutes, 0, 0);
-  if (target < now) target.setDate(target.getDate() + 1);
-  return Math.max(0, Math.round((target - now) / 60000));
+  const current = now.getHours() * 60 + now.getMinutes();
+  return Math.max(0, hours * 60 + minutes - current);
+}
+
+function getTimes(profile, now) {
+  if (!scheduleData?.profiles?.[profile.id]) return profile.demoDepartures.slice(0, 3);
+  const current = now.getHours() * 60 + now.getMinutes();
+  return scheduleData.profiles[profile.id]
+    .filter((item) => isServiceActive(item.service_id, now) && toMinutes(item.time) >= current)
+    .slice(0, 3)
+    .map((item) => item.time.slice(0, 5));
 }
 
 function buildDepartureItem(time, now) {
@@ -52,12 +81,36 @@ function buildDepartureItem(time, now) {
 function render() {
   const now = new Date();
   const profile = getActiveProfile(now);
+  const times = getTimes(profile, now);
 
   clock.textContent = now.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
   stopName.textContent = profile.stopName;
   routeNumber.textContent = profile.route;
   direction.textContent = `→ ${profile.direction}`;
-  departures.replaceChildren(...profile.demoDepartures.map((time) => buildDepartureItem(time, now)));
+
+  if (times.length) {
+    departures.replaceChildren(...times.map((time) => buildDepartureItem(time, now)));
+  } else {
+    const empty = document.createElement('li');
+    empty.textContent = 'Aucun passage planifié restant aujourd’hui.';
+    departures.replaceChildren(empty);
+  }
+
+  dataStatus.textContent = scheduleData
+    ? `Horaires planifiés TEC · données préparées ${new Date(scheduleData.generated_at).toLocaleDateString('fr-BE')}`
+    : 'Horaires planifiés · données de démonstration (GTFS préparé indisponible)';
+}
+
+async function loadSchedules() {
+  try {
+    const response = await fetch('./data/schedules.json', { cache: 'no-cache' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    scheduleData = await response.json();
+  } catch (error) {
+    console.info('GTFS préparé indisponible, fallback démo.', error);
+    scheduleData = null;
+  }
+  render();
 }
 
 swapButton.addEventListener('click', () => {
@@ -71,4 +124,5 @@ if ('serviceWorker' in navigator) {
 }
 
 render();
+loadSchedules();
 setInterval(render, 60_000);
