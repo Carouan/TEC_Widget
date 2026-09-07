@@ -38,6 +38,7 @@ h2 { font-size: 1.1rem; }
 .date-picker { position: relative; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
 .date-picker input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .advanced-hour { display: flex; align-items: center; gap: .6rem; padding: .6rem 0 .2rem; font-size: .85rem; }
+.advanced-hour[hidden] { display: none !important; }
 .advanced-hour select, .setting-row select, .favorite-card select, .favorite-card input[type="text"], .favorite-card input[type="time"] { border: 1px solid #cbd5e1; border-radius: .65rem; background: #f8fafc; color: #0f172a; min-height: 2.35rem; padding: .4rem .65rem; }
 
 .departures { list-style: none; margin: .65rem 0 0; padding: 0; }
