@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#111827" />
-  <meta name="description" content="Affiche les trois prochains passages TEC pour vos trajets favoris." />
+  <meta name="description" content="Affiche les prochains passages TEC pour vos trajets favoris." />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="stylesheet" href="./src/styles.css" />
   <title>TEC Widget</title>
@@ -26,6 +26,24 @@
           <p class="route-line"><span id="route-number" class="route-badge"></span><span id="direction"></span></p>
         </div>
         <button id="swap-route" class="swap-button" type="button" aria-label="Afficher l'autre trajet">⇄</button>
+      </div>
+
+      <div class="display-controls" aria-label="Réglages d’affichage">
+        <label class="control-field" for="reference-hour">
+          <span>À partir de</span>
+          <select id="reference-hour">
+            <option value="now">Maintenant</option>
+          </select>
+        </label>
+        <label class="control-field" for="departure-count">
+          <span>Passages</span>
+          <select id="departure-count">
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </label>
       </div>
 
       <ol id="departures" class="departures" aria-live="polite"></ol>
