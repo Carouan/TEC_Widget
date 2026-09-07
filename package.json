@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "python -m http.server 4173",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test:gtfs": "python scripts/prepare_gtfs.py --self-test",
+    "prepare:gtfs": "python scripts/prepare_gtfs.py --download"
   }
 }
