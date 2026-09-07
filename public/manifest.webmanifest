@@ -7,5 +7,19 @@
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#111827",
-  "lang": "fr-BE"
+  "lang": "fr-BE",
+  "icons": [
+    {
+      "src": "./icons/tec-widget.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/tec-widget-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
 }
