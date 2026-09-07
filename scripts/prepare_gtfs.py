@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, csv, io, json, tempfile, urllib.request, zipfile
+import argparse, csv, io, json, shutil, tempfile, urllib.error, urllib.request, zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -7,6 +7,11 @@ FEED_URL = 'https://opendata.tec-wl.be/Current%20GTFS/TEC-GTFS.zip'
 TARGETS = {
     'outbound': {'route': '9', 'stop': 'Belgrade - Rue Laide Coupe', 'direction': 'Jambes'},
     'inbound': {'route': '9', 'stop': 'Rue des Combattants', 'direction': 'Flawinne'},
+}
+
+DOWNLOAD_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (compatible; TEC-Widget/0.1; +https://github.com/Carouan/TEC_Widget)',
+    'Accept': 'application/zip, application/octet-stream;q=0.9, */*;q=0.8',
 }
 
 def norm(value):
@@ -73,6 +78,19 @@ def write_output(data, output):
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
 
+def download_feed(destination):
+    request = urllib.request.Request(FEED_URL, headers=DOWNLOAD_HEADERS)
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response, open(destination, 'wb') as output:
+            shutil.copyfileobj(response, output, length=1024 * 1024)
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            f"Le serveur TEC a refusé le téléchargement GTFS (HTTP {exc.code}). "
+            f"URL: {FEED_URL}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Téléchargement GTFS TEC impossible: {exc.reason}") from exc
+
 def self_test():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w') as z:
@@ -101,7 +119,7 @@ def main():
     if args.download:
         with tempfile.NamedTemporaryFile(suffix='.zip') as tmp:
             print('Téléchargement GTFS TEC…')
-            urllib.request.urlretrieve(FEED_URL, tmp.name)
+            download_feed(tmp.name)
             with zipfile.ZipFile(tmp.name) as z: write_output(build(z), args.output)
         return
     if not args.input: p.error('--input ou --download requis')
