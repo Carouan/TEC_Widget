@@ -21,6 +21,7 @@ DOWNLOAD_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; TEC-Widget/0.1; +https://github.com/Carouan/TEC_Widget)',
     'Accept': 'application/zip, application/octet-stream;q=0.9, */*;q=0.8',
 }
+WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
 
 def norm(value):
@@ -37,26 +38,17 @@ def route_matches(value, wanted):
     wanted = str(wanted).strip()
     if value == wanted:
         return True
-    if value.isdigit() and wanted.isdigit():
-        return int(value) == int(wanted)
-    return False
+    return value.isdigit() and wanted.isdigit() and int(value) == int(wanted)
 
 
 def resolve_stop_ids(stops, aliases):
     wanted = {norm(alias) for alias in aliases}
-    direct = {
-        stop['stop_id']
-        for stop in stops
-        if norm(stop.get('stop_name')) in wanted
-    }
-
+    direct = {stop['stop_id'] for stop in stops if norm(stop.get('stop_name')) in wanted}
     if not direct:
         direct = {
-            stop['stop_id']
-            for stop in stops
+            stop['stop_id'] for stop in stops
             if any(alias in norm(stop.get('stop_name')) or norm(stop.get('stop_name')) in alias for alias in wanted)
         }
-
     if not direct:
         return set()
 
@@ -84,7 +76,27 @@ def direction_matches(target, headsign, terminal_name):
     return wanted in norm(terminal_name) or wanted in norm(headsign)
 
 
-def build(zf):
+def parse_audit_date(value):
+    return datetime.strptime(value, '%Y-%m-%d').date()
+
+
+def service_is_active(service_id, date, services, exceptions):
+    key = date.strftime('%Y%m%d')
+    exception = exceptions.get(service_id, {}).get(key)
+    if exception == 1:
+        return True
+    if exception == 2:
+        return False
+
+    service = services.get(service_id)
+    if not service:
+        return False
+    if key < service.get('start_date', '') or key > service.get('end_date', ''):
+        return False
+    return service.get(WEEKDAYS[date.weekday()], '0') == '1'
+
+
+def load_context(zf):
     routes = rows(zf, 'routes.txt')
     stops = rows(zf, 'stops.txt')
     trips = rows(zf, 'trips.txt')
@@ -95,8 +107,7 @@ def build(zf):
         calendar_dates = []
 
     route_ids = {
-        route['route_id']
-        for route in routes
+        route['route_id'] for route in routes
         if route_matches(route.get('route_short_name'), '9')
     }
     if not route_ids:
@@ -116,17 +127,19 @@ def build(zf):
     stop_names = {stop['stop_id']: stop.get('stop_name', '') for stop in stops}
     route_trips = {
         trip['trip_id']: {
-            'service_id': trip['service_id'],
+            'trip_id': trip['trip_id'],
+            'route_id': trip.get('route_id', ''),
+            'service_id': trip.get('service_id', ''),
             'headsign': trip.get('trip_headsign', ''),
+            'direction_id': trip.get('direction_id', ''),
             'last_sequence': -1,
             'last_stop_id': None,
             'target_departures': {profile: [] for profile in TARGETS},
         }
-        for trip in trips
-        if trip.get('route_id') in route_ids
+        for trip in trips if trip.get('route_id') in route_ids
     }
 
-    services = {c['service_id']: c for c in calendar}
+    services = {item['service_id']: item for item in calendar}
     exceptions = {}
     for item in calendar_dates:
         exceptions.setdefault(item['service_id'], {})[item['date']] = int(item['exception_type'])
@@ -137,16 +150,19 @@ def build(zf):
             trip = route_trips.get(st.get('trip_id'))
             if not trip:
                 continue
-
             sequence = sequence_number(st.get('stop_sequence'))
             if sequence >= trip['last_sequence']:
                 trip['last_sequence'] = sequence
                 trip['last_stop_id'] = st.get('stop_id')
-
             for profile in TARGETS:
                 if st.get('stop_id') in stop_lookup[profile]:
                     trip['target_departures'][profile].append(st.get('departure_time', ''))
 
+    return route_ids, stop_lookup, stop_names, route_trips, services, exceptions
+
+
+def build(zf):
+    route_ids, stop_lookup, stop_names, route_trips, services, exceptions = load_context(zf)
     departures = {key: [] for key in TARGETS}
     trip_counts = {key: 0 for key in TARGETS}
     observed = {key: [] for key in TARGETS}
@@ -157,22 +173,13 @@ def build(zf):
             target_times = [time for time in trip['target_departures'][profile] if time]
             if not target_times:
                 continue
-
             if len(observed[profile]) < 12:
-                observed[profile].append({
-                    'headsign': trip['headsign'],
-                    'terminal': terminal_name,
-                })
-
+                observed[profile].append({'headsign': trip['headsign'], 'terminal': terminal_name})
             if not direction_matches(target, trip['headsign'], terminal_name):
                 continue
-
             trip_counts[profile] += 1
             for departure_time in target_times:
-                departures[profile].append({
-                    'time': departure_time,
-                    'service_id': trip['service_id'],
-                })
+                departures[profile].append({'time': departure_time, 'service_id': trip['service_id']})
 
     diagnostics = {}
     for profile, values in departures.items():
@@ -185,7 +192,6 @@ def build(zf):
             'departures': len(values),
             'observed_directions': observed[profile],
         }
-
     print('GTFS diagnostics:', json.dumps(diagnostics, ensure_ascii=False))
 
     empty_profiles = [profile for profile, values in departures.items() if not values]
@@ -212,6 +218,52 @@ def build(zf):
     }
 
 
+def audit(zf, profile, audit_date, start_time, end_time):
+    if profile not in TARGETS:
+        raise RuntimeError(f"Profil d'audit inconnu: {profile}")
+    _, stop_lookup, stop_names, route_trips, services, exceptions = load_context(zf)
+    target = TARGETS[profile]
+    date = parse_audit_date(audit_date)
+    results = []
+
+    for trip in route_trips.values():
+        terminal_name = stop_names.get(trip['last_stop_id'], '')
+        matches_direction = direction_matches(target, trip['headsign'], terminal_name)
+        active = service_is_active(trip['service_id'], date, services, exceptions)
+        for departure_time in trip['target_departures'][profile]:
+            hhmm = departure_time[:5]
+            if not (start_time <= hhmm <= end_time):
+                continue
+            reasons = []
+            if not active:
+                reasons.append('service inactif à cette date')
+            if not matches_direction:
+                reasons.append(f"direction/terminus ne correspond pas à {target['direction']}")
+            results.append({
+                'time': departure_time,
+                'trip_id': trip['trip_id'],
+                'route_id': trip['route_id'],
+                'service_id': trip['service_id'],
+                'service_active': active,
+                'direction_id': trip['direction_id'],
+                'headsign': trip['headsign'],
+                'terminal': terminal_name,
+                'selected_by_profile': active and matches_direction,
+                'reason': 'retenu' if active and matches_direction else '; '.join(reasons),
+            })
+
+    results.sort(key=lambda item: (item['time'], item['trip_id']))
+    print(f"GTFS audit: profile={profile}, date={audit_date}, window={start_time}-{end_time}")
+    print(f"Target stop ids: {sorted(stop_lookup[profile])}")
+    if not results:
+        print('Aucune course trouvée dans cette fenêtre.')
+        return []
+    for item in results:
+        print(json.dumps(item, ensure_ascii=False))
+    print(f"Audit summary: total={len(results)}, selected={sum(1 for item in results if item['selected_by_profile'])}")
+    return results
+
+
 def write_output(data, output):
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
@@ -223,9 +275,7 @@ def download_feed(destination):
         with urllib.request.urlopen(request, timeout=120) as response, open(destination, 'wb') as output:
             shutil.copyfileobj(response, output, length=1024 * 1024)
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(
-            f"Le serveur TEC a refusé le téléchargement GTFS (HTTP {exc.code}). URL: {FEED_URL}"
-        ) from exc
+        raise RuntimeError(f"Le serveur TEC a refusé le téléchargement GTFS (HTTP {exc.code}). URL: {FEED_URL}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Téléchargement GTFS TEC impossible: {exc.reason}") from exc
 
@@ -246,20 +296,23 @@ def self_test():
         )
         z.writestr(
             'trips.txt',
-            'route_id,service_id,trip_id,trip_headsign\n'
-            'r9,WKD,t1,Centre\n'
-            'r9,WKD,t1b,Université\n'
-            'r9,WKD,t2,Gare\n'
+            'route_id,service_id,trip_id,trip_headsign,direction_id\n'
+            'r9,WKD,t1,Centre,0\n'
+            'r9,WKD,t1b,Université,0\n'
+            'r9,WKD,t2,Gare,1\n'
+            'r9,WKD,t3,Gare,1\n'
         )
         z.writestr(
             'stop_times.txt',
             'trip_id,arrival_time,departure_time,stop_id,stop_sequence\n'
             't1,07:40:00,07:40:00,s1c,1\n'
             't1,08:00:00,08:00:00,j1,2\n'
-            't1b,08:10:00,08:10:00,s1c,1\n'
-            't1b,08:30:00,08:30:00,j1,2\n'
+            't1b,07:45:00,07:45:00,s1c,1\n'
+            't1b,08:05:00,08:05:00,j1,2\n'
             't2,16:40:00,16:40:00,s2c,1\n'
             't2,17:00:00,17:00:00,f1,2\n'
+            't3,07:45:00,07:45:00,s1c,1\n'
+            't3,08:05:00,08:05:00,f1,2\n'
         )
         z.writestr(
             'calendar.txt',
@@ -270,11 +323,21 @@ def self_test():
     buf.seek(0)
     with zipfile.ZipFile(buf) as z:
         data = build(z)
+        audited = audit(z, 'outbound', '2026-09-08', '07:40', '07:50')
     assert len(data['profiles']['outbound']) == 2
     assert data['profiles']['outbound'][0]['time'] == '07:40:00'
     assert data['profiles']['inbound'][0]['time'] == '16:40:00'
     assert data['exceptions']['WKD']['20260921'] == 2
+    assert len(audited) == 3
+    assert sum(1 for item in audited if item['selected_by_profile']) == 2
+    assert any('direction/terminus' in item['reason'] for item in audited if not item['selected_by_profile'])
     print('GTFS self-test OK')
+
+
+def run_with_zip(zf, args):
+    if args.audit_profile:
+        return audit(zf, args.audit_profile, args.audit_date, args.audit_from, args.audit_to)
+    return write_output(build(zf), args.output)
 
 
 def main():
@@ -283,7 +346,12 @@ def main():
     p.add_argument('--output', type=Path, default=Path('public/data/schedules.json'))
     p.add_argument('--download', action='store_true')
     p.add_argument('--self-test', action='store_true')
+    p.add_argument('--audit-profile', choices=sorted(TARGETS))
+    p.add_argument('--audit-date', default='2026-09-08')
+    p.add_argument('--audit-from', default='07:40')
+    p.add_argument('--audit-to', default='07:50')
     args = p.parse_args()
+
     if args.self_test:
         return self_test()
     if args.download:
@@ -291,12 +359,11 @@ def main():
             print('Téléchargement GTFS TEC…')
             download_feed(tmp.name)
             with zipfile.ZipFile(tmp.name) as z:
-                write_output(build(z), args.output)
-        return
+                return run_with_zip(z, args)
     if not args.input:
         p.error('--input ou --download requis')
     with zipfile.ZipFile(args.input) as z:
-        write_output(build(z), args.output)
+        return run_with_zip(z, args)
 
 
 if __name__ == '__main__':
