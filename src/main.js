@@ -1,5 +1,5 @@
 import { defaultFavorites, preparedProfiles } from './config.js';
-import { addDays, dayStart, labelDate, nextSmartPlan, periodThreshold, sameDay, toMinutes } from './planner.js';
+import { addDays, dayStart, labelDate, nextSmartPlan, sameDay, toMinutes } from './planner.js';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -128,15 +128,17 @@ function filterForPeriod(items, period, hour, date, now) {
 function findPlanForPeriod(now, period, hour) {
   for (let offset = 0; offset <= 14; offset += 1) {
     const date = addDays(dayStart(now), offset);
+    const current = now.getHours() * 60 + now.getMinutes();
     if (offset === 0) {
-      const current = now.getHours() * 60 + now.getMinutes();
       if (period === 'morning' && current >= 12 * 60) continue;
       if (period === 'hour' && current > Number(hour) * 60) continue;
     }
+
     const candidates = [];
     for (const favorite of favorites) {
       if (!favorite.days.includes(date.getDay())) continue;
-      const list = filterForPeriod(favoriteDepartures(favorite, date), period, hour, date, now);
+      let list = filterForPeriod(favoriteDepartures(favorite, date), period, hour, date, now);
+      if (offset === 0) list = list.filter((item) => toMinutes(item.time) >= current);
       if (list.length) candidates.push({ favorite, date, firstDeparture: list[0] });
     }
     if (candidates.length) {
@@ -239,7 +241,8 @@ function syncControls() {
 
 function render() {
   const now = new Date();
-  const smartPlan = getSmartPlan(now);
+  const forcedFavorite = favorites.find((item) => item.id === manualFavoriteId);
+  const smartPlan = getSmartPlan(now, forcedFavorite ? [forcedFavorite] : favorites);
   const targetDate = resolveTargetDate(now, smartPlan);
   const favorite = chooseFavorite(targetDate, now, smartPlan) || favorites[0];
   if (!favorite) return;
@@ -377,7 +380,9 @@ function readEditorDraft() {
 
 swapButton.addEventListener('click', () => {
   const now = new Date();
-  const current = chooseFavorite(resolveTargetDate(now, getSmartPlan(now)), now, getSmartPlan(now));
+  const forcedFavorite = favorites.find((item) => item.id === manualFavoriteId);
+  const smartPlan = getSmartPlan(now, forcedFavorite ? [forcedFavorite] : favorites);
+  const current = chooseFavorite(resolveTargetDate(now, smartPlan), now, smartPlan);
   const index = Math.max(0, favorites.findIndex((item) => item.id === current?.id));
   manualFavoriteId = favorites[(index + 1) % favorites.length]?.id || null;
   render();
@@ -432,7 +437,7 @@ $('#add-favorite').addEventListener('click', () => {
   const source = Object.keys(preparedProfiles)[0];
   editorDraft.push({
     id: `favorite-${Date.now()}`,
-    name: `Nouveau trajet`,
+    name: 'Nouveau trajet',
     profileId: source,
     days: [1,2,3,4,5],
     period: 'morning',
