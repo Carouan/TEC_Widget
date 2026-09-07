@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="description" content="Affiche les trois prochains passages TEC pour vos trajets favoris." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./src/styles.css" />
+  <title>TEC Widget</title>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="widget-card" aria-labelledby="route-title">
+      <header class="widget-header">
+        <div>
+          <p class="eyebrow">TEC Widget</p>
+          <h1 id="route-title">Prochains passages</h1>
+        </div>
+        <time id="current-time" class="clock" aria-live="polite"></time>
+      </header>
+
+      <div class="route-summary">
+        <div>
+          <p id="stop-name" class="stop-name"></p>
+          <p class="route-line"><span id="route-number" class="route-badge"></span><span id="direction"></span></p>
+        </div>
+        <button id="swap-route" class="swap-button" type="button" aria-label="Afficher l'autre trajet">⇄</button>
+      </div>
+
+      <ol id="departures" class="departures" aria-live="polite"></ol>
+      <p class="status-line">Horaires planifiés · données de démonstration</p>
+    </section>
+  </main>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
