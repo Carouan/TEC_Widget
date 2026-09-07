@@ -1,0 +1,11 @@
+{
+  "name": "TEC Widget",
+  "short_name": "TEC Widget",
+  "description": "Affiche les prochains passages planifiés du TEC pour vos trajets favoris.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#111827",
+  "lang": "fr-BE"
+}
