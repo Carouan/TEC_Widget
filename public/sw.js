@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tec-widget-v0.1.0';
+const CACHE_NAME = 'tec-widget-v0.2.0';
 const APP_SHELL = [
   './',
   './index.html',
@@ -22,9 +22,25 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    throw error;
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
-  );
+
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  event.respondWith(networkFirst(event.request));
 });
