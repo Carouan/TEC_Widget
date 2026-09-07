@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">TEC Widget</title>
+  <rect width="512" height="512" rx="112" fill="#111827"/>
+  <rect x="88" y="108" width="336" height="232" rx="56" fill="#ffffff"/>
+  <rect x="132" y="148" width="248" height="82" rx="24" fill="#111827"/>
+  <text x="256" y="207" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="700" fill="#ffffff">9</text>
+  <circle cx="164" cy="352" r="36" fill="#ffffff"/>
+  <circle cx="348" cy="352" r="36" fill="#ffffff"/>
+  <path d="M148 278h216" stroke="#111827" stroke-width="24" stroke-linecap="round"/>
+</svg>

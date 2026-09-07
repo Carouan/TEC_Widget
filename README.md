@@ -17,6 +17,16 @@ PWA légère pour afficher rapidement les prochains passages planifiés du rése
 - matin : ligne 9, arrêt `Belgrade - Rue Laide Coupe`, direction `Jambes` ;
 - retour : ligne 9, arrêt `Rue des Combattants`, direction `Flawinne`.
 
+## Déploiement public
+
+La PWA est prévue pour être publiée via GitHub Pages à l’adresse :
+
+`https://carouan.github.io/TEC_Widget/`
+
+Le workflow **Deploy GitHub Pages** est déclenché à chaque push vers `main` et peut aussi être lancé manuellement. Il valide le prétraitement GTFS, télécharge le feed TEC courant, génère les horaires compacts, construit `dist/` puis publie l’artefact avec les actions GitHub Pages officielles.
+
+Avant le premier déploiement, le dépôt doit utiliser **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
 ## Données GTFS
 
 Le feed officiel TEC est trop volumineux pour être téléchargé directement par la PWA. Le projet le prétraite donc avant déploiement pour produire `public/data/schedules.json`, qui ne contient que les passages utiles aux trajets configurés.
