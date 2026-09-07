@@ -22,12 +22,15 @@ DOWNLOAD_HEADERS = {
     'Accept': 'application/zip, application/octet-stream;q=0.9, */*;q=0.8',
 }
 
+
 def norm(value):
     return ' '.join((value or '').lower().replace('-', ' ').replace("'", ' ').split())
+
 
 def rows(zf, name):
     with zf.open(name) as raw:
         return list(csv.DictReader(io.TextIOWrapper(raw, encoding='utf-8-sig', newline='')))
+
 
 def route_matches(value, wanted):
     value = (value or '').strip()
@@ -37,6 +40,7 @@ def route_matches(value, wanted):
     if value.isdigit() and wanted.isdigit():
         return int(value) == int(wanted)
     return False
+
 
 def resolve_stop_ids(stops, aliases):
     wanted = {norm(alias) for alias in aliases}
@@ -67,6 +71,19 @@ def resolve_stop_ids(stops, aliases):
                 changed = True
     return resolved
 
+
+def sequence_number(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return -1
+
+
+def direction_matches(target, headsign, terminal_name):
+    wanted = norm(target['direction'])
+    return wanted in norm(terminal_name) or wanted in norm(headsign)
+
+
 def build(zf):
     routes = rows(zf, 'routes.txt')
     stops = rows(zf, 'stops.txt')
@@ -96,51 +113,88 @@ def build(zf):
             )
         stop_lookup[profile] = matches
 
-    trip_lookup = {}
-    trip_counts = {key: 0 for key in TARGETS}
-    for trip in trips:
-        if trip.get('route_id') not in route_ids:
-            continue
-        headsign = norm(trip.get('trip_headsign'))
-        for profile, target in TARGETS.items():
-            if norm(target['direction']) in headsign:
-                trip_lookup[trip['trip_id']] = (profile, trip['service_id'])
-                trip_counts[profile] += 1
+    stop_names = {stop['stop_id']: stop.get('stop_name', '') for stop in stops}
+    route_trips = {
+        trip['trip_id']: {
+            'service_id': trip['service_id'],
+            'headsign': trip.get('trip_headsign', ''),
+            'last_sequence': -1,
+            'last_stop_id': None,
+            'target_departures': {profile: [] for profile in TARGETS},
+        }
+        for trip in trips
+        if trip.get('route_id') in route_ids
+    }
 
     services = {c['service_id']: c for c in calendar}
     exceptions = {}
     for item in calendar_dates:
         exceptions.setdefault(item['service_id'], {})[item['date']] = int(item['exception_type'])
 
-    departures = {key: [] for key in TARGETS}
     with zf.open('stop_times.txt') as raw:
         reader = csv.DictReader(io.TextIOWrapper(raw, encoding='utf-8-sig', newline=''))
         for st in reader:
-            info = trip_lookup.get(st.get('trip_id'))
-            if not info:
+            trip = route_trips.get(st.get('trip_id'))
+            if not trip:
                 continue
-            profile, service_id = info
-            if st.get('stop_id') not in stop_lookup[profile]:
+
+            sequence = sequence_number(st.get('stop_sequence'))
+            if sequence >= trip['last_sequence']:
+                trip['last_sequence'] = sequence
+                trip['last_stop_id'] = st.get('stop_id')
+
+            for profile in TARGETS:
+                if st.get('stop_id') in stop_lookup[profile]:
+                    trip['target_departures'][profile].append(st.get('departure_time', ''))
+
+    departures = {key: [] for key in TARGETS}
+    trip_counts = {key: 0 for key in TARGETS}
+    observed = {key: [] for key in TARGETS}
+
+    for trip in route_trips.values():
+        terminal_name = stop_names.get(trip['last_stop_id'], '')
+        for profile, target in TARGETS.items():
+            target_times = [time for time in trip['target_departures'][profile] if time]
+            if not target_times:
                 continue
-            departures[profile].append({'time': st['departure_time'], 'service_id': service_id})
+
+            if len(observed[profile]) < 12:
+                observed[profile].append({
+                    'headsign': trip['headsign'],
+                    'terminal': terminal_name,
+                })
+
+            if not direction_matches(target, trip['headsign'], terminal_name):
+                continue
+
+            trip_counts[profile] += 1
+            for departure_time in target_times:
+                departures[profile].append({
+                    'time': departure_time,
+                    'service_id': trip['service_id'],
+                })
 
     diagnostics = {}
     for profile, values in departures.items():
         values.sort(key=lambda x: x['time'])
         diagnostics[profile] = {
             'route_ids': len(route_ids),
+            'route_trips': len(route_trips),
             'trip_matches': trip_counts[profile],
             'stop_ids': len(stop_lookup[profile]),
             'departures': len(values),
+            'observed_directions': observed[profile],
         }
 
     print('GTFS diagnostics:', json.dumps(diagnostics, ensure_ascii=False))
 
     empty_profiles = [profile for profile, values in departures.items() if not values]
     if empty_profiles:
-        details = ', '.join(
-            f"{profile}: trips={diagnostics[profile]['trip_matches']}, "
-            f"stop_ids={diagnostics[profile]['stop_ids']}, departures=0"
+        details = '; '.join(
+            f"{profile}: stop_ids={diagnostics[profile]['stop_ids']}, "
+            f"route_trips={diagnostics[profile]['route_trips']}, "
+            f"matched_trips={diagnostics[profile]['trip_matches']}, "
+            f"observed={diagnostics[profile]['observed_directions']}"
             for profile in empty_profiles
         )
         raise RuntimeError(
@@ -157,9 +211,11 @@ def build(zf):
         'exceptions': exceptions,
     }
 
+
 def write_output(data, output):
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+
 
 def download_feed(destination):
     request = urllib.request.Request(FEED_URL, headers=DOWNLOAD_HEADERS)
@@ -173,6 +229,7 @@ def download_feed(destination):
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Téléchargement GTFS TEC impossible: {exc.reason}") from exc
 
+
 def self_test():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w') as z:
@@ -184,19 +241,25 @@ def self_test():
             's1c,Belgrade - Rue Laide Coupe quai,0,s1p\n'
             's2p,NAMUR Avenue des Combattants,1,\n'
             's2c,NAMUR Avenue des Combattants quai,0,s2p\n'
+            'j1,JAMBES Place,0,\n'
+            'f1,FLAWINNE Centre,0,\n'
         )
         z.writestr(
             'trips.txt',
             'route_id,service_id,trip_id,trip_headsign\n'
-            'r9,WKD,t1,Jambes Amée\n'
-            'r9,WKD,t2,Flawinne Quatre Seigneurs\n'
+            'r9,WKD,t1,Centre\n'
+            'r9,WKD,t1b,Université\n'
+            'r9,WKD,t2,Gare\n'
         )
         z.writestr(
             'stop_times.txt',
             'trip_id,arrival_time,departure_time,stop_id,stop_sequence\n'
             't1,07:40:00,07:40:00,s1c,1\n'
-            't1,08:10:00,08:10:00,s1c,1\n'
+            't1,08:00:00,08:00:00,j1,2\n'
+            't1b,08:10:00,08:10:00,s1c,1\n'
+            't1b,08:30:00,08:30:00,j1,2\n'
             't2,16:40:00,16:40:00,s2c,1\n'
+            't2,17:00:00,17:00:00,f1,2\n'
         )
         z.writestr(
             'calendar.txt',
@@ -208,9 +271,11 @@ def self_test():
     with zipfile.ZipFile(buf) as z:
         data = build(z)
     assert len(data['profiles']['outbound']) == 2
+    assert data['profiles']['outbound'][0]['time'] == '07:40:00'
     assert data['profiles']['inbound'][0]['time'] == '16:40:00'
     assert data['exceptions']['WKD']['20260921'] == 2
     print('GTFS self-test OK')
+
 
 def main():
     p = argparse.ArgumentParser()
@@ -232,6 +297,7 @@ def main():
         p.error('--input ou --download requis')
     with zipfile.ZipFile(args.input) as z:
         write_output(build(z), args.output)
+
 
 if __name__ == '__main__':
     main()
