@@ -1,0 +1,45 @@
+name: Audit TEC GTFS
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Profil à auditer
+        required: true
+        default: outbound
+        type: choice
+        options:
+          - outbound
+          - inbound
+      date:
+        description: Date au format YYYY-MM-DD
+        required: true
+        default: '2026-09-08'
+        type: string
+      from_time:
+        description: Heure de début HH:MM
+        required: true
+        default: '07:40'
+        type: string
+      to_time:
+        description: Heure de fin HH:MM
+        required: true
+        default: '07:50'
+        type: string
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Audit current TEC GTFS
+        run: >-
+          python scripts/prepare_gtfs.py
+          --download
+          --audit-profile "${{ inputs.profile }}"
+          --audit-date "${{ inputs.date }}"
+          --audit-from "${{ inputs.from_time }}"
+          --audit-to "${{ inputs.to_time }}"
