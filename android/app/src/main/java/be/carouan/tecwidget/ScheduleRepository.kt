@@ -1,5 +1,6 @@
 package be.carouan.tecwidget
 
+import android.content.Context
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -19,54 +20,94 @@ object ScheduleRepository {
         val status: String,
     )
 
-    fun load(now: LocalDateTime = LocalDateTime.now()): Result {
+    fun load(context: Context, now: LocalDateTime = LocalDateTime.now()): Result {
         val connection = (URL(DATA_URL).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 10_000
             requestMethod = "GET"
-            setRequestProperty("User-Agent", "TEC-Widget-Android/0.1")
+            setRequestProperty("User-Agent", "TEC-Widget-Android/0.2")
             setRequestProperty("Accept", "application/json")
         }
 
         val json = connection.inputStream.bufferedReader().use { it.readText() }
         connection.disconnect()
-        return parse(JSONObject(json), now)
+        return parse(JSONObject(json), now, WidgetPreferences.load(context))
     }
 
-    internal fun parse(root: JSONObject, now: LocalDateTime): Result {
-        val useOutbound = now.hour < 12 || now.hour >= 20
-        val profile = if (useOutbound) "outbound" else "inbound"
-        val title = if (useOutbound) "TEC · Maison → Travail" else "TEC · Travail → Maison"
-        val route = if (useOutbound) "9 → Jambes" else "9 → Flawinne"
-        val startDate = if (now.hour >= 20) now.toLocalDate().plusDays(1) else now.toLocalDate()
+    internal fun parse(
+        root: JSONObject,
+        now: LocalDateTime,
+        settings: WidgetPreferences.Settings = WidgetPreferences.Settings(),
+    ): Result {
+        val intelligentAuto = settings.mode == "intelligent" && settings.period == "auto"
+        val autoOutbound = now.hour < 12 || now.hour >= 20
+        val profile = if (!intelligentAuto && settings.profileId != null) {
+            settings.profileId
+        } else {
+            if (autoOutbound) "outbound" else "inbound"
+        }
+        val isOutbound = profile == "outbound"
+        val fallbackTitle = if (isOutbound) "Maison → Travail" else "Travail → Maison"
+        val title = "TEC · ${settings.favoriteName?.takeIf { settings.profileId == profile } ?: fallbackTitle}"
+        val route = if (isOutbound) "9 → Jambes" else "9 → Flawinne"
+        val startDate = resolveStartDate(now, settings, intelligentAuto)
         val profiles = root.getJSONObject("profiles")
         val services = root.getJSONObject("services")
         val exceptions = root.optJSONObject("exceptions") ?: JSONObject()
         val trips = profiles.getJSONArray(profile)
+        val currentMinutes = now.hour * 60 + now.minute
+        val (periodMin, periodMax) = periodBounds(settings)
 
         val collected = mutableListOf<Pair<LocalDate, Int>>()
         for (offset in 0..7) {
             val serviceDate = startDate.plusDays(offset.toLong())
+            val threshold = if (serviceDate == now.toLocalDate()) {
+                maxOf(periodMin, currentMinutes)
+            } else {
+                periodMin
+            }
+
             for (index in 0 until trips.length()) {
                 val item = trips.getJSONObject(index)
                 val serviceId = item.getString("service_id")
                 if (!serviceIsActive(serviceId, serviceDate, services, exceptions)) continue
                 val minutes = parseGtfsMinutes(item.getString("time")) ?: continue
-                if (serviceDate == now.toLocalDate() && now.hour < 20) {
-                    val currentMinutes = now.hour * 60 + now.minute
-                    if (minutes < currentMinutes) continue
-                }
+                if (minutes < threshold || minutes >= periodMax) continue
                 collected += serviceDate to minutes
             }
-            if (collected.size >= 3) break
+            if (collected.size >= settings.departureCount) break
         }
 
-        val next = collected.sortedWith(compareBy<Pair<LocalDate, Int>> { it.first }.thenBy { it.second }).take(3)
+        val next = collected
+            .sortedWith(compareBy<Pair<LocalDate, Int>> { it.first }.thenBy { it.second })
+            .take(settings.departureCount)
         val rendered = next.map { (date, minutes) -> formatDeparture(date, minutes, now) }
         val generated = root.optString("generated_at").take(10)
-        val status = if (generated.isNotBlank()) "Horaires planifiés TEC · $generated" else "Horaires planifiés TEC"
+        val baseStatus = if (generated.isNotBlank()) "Horaires planifiés TEC · $generated" else "Horaires planifiés TEC"
+        val status = if (settings.profileId != null) "$baseStatus · réglages synchronisés" else baseStatus
 
         return Result(title, route, rendered, status)
+    }
+
+    private fun resolveStartDate(
+        now: LocalDateTime,
+        settings: WidgetPreferences.Settings,
+        intelligentAuto: Boolean,
+    ): LocalDate {
+        val currentMinutes = now.hour * 60 + now.minute
+        return when (settings.period) {
+            "morning" -> if (currentMinutes >= 12 * 60) now.toLocalDate().plusDays(1) else now.toLocalDate()
+            "hour" -> if (currentMinutes > settings.referenceHour * 60) now.toLocalDate().plusDays(1) else now.toLocalDate()
+            "auto" -> if (intelligentAuto && now.hour >= 20) now.toLocalDate().plusDays(1) else now.toLocalDate()
+            else -> now.toLocalDate()
+        }
+    }
+
+    private fun periodBounds(settings: WidgetPreferences.Settings): Pair<Int, Int> = when (settings.period) {
+        "morning" -> 4 * 60 to 12 * 60
+        "afternoon" -> 12 * 60 to 30 * 60
+        "hour" -> settings.referenceHour * 60 to 30 * 60
+        else -> 0 to 30 * 60
     }
 
     private fun serviceIsActive(serviceId: String, date: LocalDate, services: JSONObject, exceptions: JSONObject): Boolean {
