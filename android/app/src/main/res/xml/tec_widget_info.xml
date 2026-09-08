@@ -5,7 +5,7 @@
     android:minWidth="180dp"
     android:minHeight="115dp"
     android:minResizeWidth="160dp"
-    android:minResizeHeight="100dp"
+    android:minResizeHeight="110dp"
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:previewLayout="@layout/tec_widget"
