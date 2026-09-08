@@ -9,11 +9,13 @@ TARGETS = {
         'route': '9',
         'stops': ['Belgrade - Rue Laide Coupe', 'BELGRADE Rue laide Coupe'],
         'direction': 'Jambes',
+        'direction_id': '0',
     },
     'inbound': {
         'route': '9',
         'stops': ['Rue des Combattants', 'NAMUR Avenue des Combattants'],
         'direction': 'Flawinne',
+        'direction_id': '1',
     },
 }
 
@@ -71,9 +73,23 @@ def sequence_number(value):
         return -1
 
 
-def direction_matches(target, headsign, terminal_name):
+def direction_matches(target, direction_id, headsign, terminal_name):
+    """Prefer GTFS direction_id; fall back to destination text only when absent."""
+    trip_direction = str(direction_id or '').strip()
+    wanted_direction = str(target.get('direction_id', '')).strip()
+    if trip_direction and wanted_direction:
+        return trip_direction == wanted_direction
+
     wanted = norm(target['direction'])
     return wanted in norm(terminal_name) or wanted in norm(headsign)
+
+
+def direction_mismatch_reason(target, direction_id):
+    trip_direction = str(direction_id or '').strip()
+    wanted_direction = str(target.get('direction_id', '')).strip()
+    if trip_direction and wanted_direction:
+        return f"direction_id {trip_direction} ne correspond pas à {wanted_direction}"
+    return f"fallback terminus/headsign ne correspond pas à {target['direction']}"
 
 
 def parse_audit_date(value):
@@ -174,8 +190,12 @@ def build(zf):
             if not target_times:
                 continue
             if len(observed[profile]) < 12:
-                observed[profile].append({'headsign': trip['headsign'], 'terminal': terminal_name})
-            if not direction_matches(target, trip['headsign'], terminal_name):
+                observed[profile].append({
+                    'direction_id': trip['direction_id'],
+                    'headsign': trip['headsign'],
+                    'terminal': terminal_name,
+                })
+            if not direction_matches(target, trip['direction_id'], trip['headsign'], terminal_name):
                 continue
             trip_counts[profile] += 1
             for departure_time in target_times:
@@ -228,7 +248,9 @@ def audit(zf, profile, audit_date, start_time, end_time):
 
     for trip in route_trips.values():
         terminal_name = stop_names.get(trip['last_stop_id'], '')
-        matches_direction = direction_matches(target, trip['headsign'], terminal_name)
+        matches_direction = direction_matches(
+            target, trip['direction_id'], trip['headsign'], terminal_name
+        )
         active = service_is_active(trip['service_id'], date, services, exceptions)
         for departure_time in trip['target_departures'][profile]:
             hhmm = departure_time[:5]
@@ -238,7 +260,7 @@ def audit(zf, profile, audit_date, start_time, end_time):
             if not active:
                 reasons.append('service inactif à cette date')
             if not matches_direction:
-                reasons.append(f"direction/terminus ne correspond pas à {target['direction']}")
+                reasons.append(direction_mismatch_reason(target, trip['direction_id']))
             results.append({
                 'time': departure_time,
                 'trip_id': trip['trip_id'],
@@ -246,6 +268,7 @@ def audit(zf, profile, audit_date, start_time, end_time):
                 'service_id': trip['service_id'],
                 'service_active': active,
                 'direction_id': trip['direction_id'],
+                'expected_direction_id': target['direction_id'],
                 'headsign': trip['headsign'],
                 'terminal': terminal_name,
                 'selected_by_profile': active and matches_direction,
@@ -291,6 +314,7 @@ def self_test():
             's1c,Belgrade - Rue Laide Coupe quai,0,s1p\n'
             's2p,NAMUR Avenue des Combattants,1,\n'
             's2c,NAMUR Avenue des Combattants quai,0,s2p\n'
+            'n1,NAMUR Pl. de la Station - Quai C,0,\n'
             'j1,JAMBES Place,0,\n'
             'f1,FLAWINNE Centre,0,\n'
         )
@@ -301,18 +325,21 @@ def self_test():
             'r9,WKD,t1b,Université,0\n'
             'r9,WKD,t2,Gare,1\n'
             'r9,WKD,t3,Gare,1\n'
+            'r9,WKD,t4,Jambes,\n'
         )
         z.writestr(
             'stop_times.txt',
             'trip_id,arrival_time,departure_time,stop_id,stop_sequence\n'
             't1,07:40:00,07:40:00,s1c,1\n'
             't1,08:00:00,08:00:00,j1,2\n'
-            't1b,07:45:00,07:45:00,s1c,1\n'
-            't1b,08:05:00,08:05:00,j1,2\n'
+            't1b,07:44:00,07:44:00,s1c,1\n'
+            't1b,07:55:00,07:55:00,n1,2\n'
             't2,16:40:00,16:40:00,s2c,1\n'
             't2,17:00:00,17:00:00,f1,2\n'
             't3,07:45:00,07:45:00,s1c,1\n'
             't3,08:05:00,08:05:00,f1,2\n'
+            't4,07:46:00,07:46:00,s1c,1\n'
+            't4,08:06:00,08:06:00,j1,2\n'
         )
         z.writestr(
             'calendar.txt',
@@ -324,13 +351,14 @@ def self_test():
     with zipfile.ZipFile(buf) as z:
         data = build(z)
         audited = audit(z, 'outbound', '2026-09-08', '07:40', '07:50')
-    assert len(data['profiles']['outbound']) == 2
-    assert data['profiles']['outbound'][0]['time'] == '07:40:00'
+    assert len(data['profiles']['outbound']) == 3
+    assert [item['time'] for item in data['profiles']['outbound']] == ['07:40:00', '07:44:00', '07:46:00']
     assert data['profiles']['inbound'][0]['time'] == '16:40:00'
     assert data['exceptions']['WKD']['20260921'] == 2
-    assert len(audited) == 3
-    assert sum(1 for item in audited if item['selected_by_profile']) == 2
-    assert any('direction/terminus' in item['reason'] for item in audited if not item['selected_by_profile'])
+    assert len(audited) == 4
+    assert sum(1 for item in audited if item['selected_by_profile']) == 3
+    assert any(item['time'] == '07:44:00' and item['selected_by_profile'] for item in audited)
+    assert any('direction_id 1' in item['reason'] for item in audited if not item['selected_by_profile'])
     print('GTFS self-test OK')
 
 
