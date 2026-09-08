@@ -15,7 +15,7 @@ object WidgetPreferences {
 
     private val validProfiles = setOf("outbound", "inbound")
     private val validModes = setOf("intelligent", "manual")
-    private val validPeriods = setOf("auto", "now", "morning", "afternoon", "hour")
+    private val validPeriods = listOf("auto", "now", "morning", "afternoon", "hour")
 
     data class Settings(
         val favoriteId: String? = null,
@@ -51,16 +51,73 @@ object WidgetPreferences {
         val favoriteId = uri.getQueryParameter("favoriteId")?.take(120)
         val favoriteName = uri.getQueryParameter("favoriteName")?.take(120)
 
+        save(
+            context,
+            Settings(
+                favoriteId = favoriteId,
+                profileId = profileId,
+                favoriteName = favoriteName,
+                mode = mode,
+                period = period,
+                departureCount = departureCount,
+                referenceHour = referenceHour,
+            ),
+        )
+        return true
+    }
+
+    fun cycleProfile(context: Context): Settings {
+        val current = load(context)
+        val nextProfile = if (current.profileId == "outbound") "inbound" else "outbound"
+        val next = current.copy(
+            favoriteId = if (nextProfile == "outbound") "home-work" else "work-home",
+            profileId = nextProfile,
+            favoriteName = if (nextProfile == "outbound") "Maison → Travail" else "Travail → Maison",
+            mode = "manual",
+        )
+        save(context, next)
+        return next
+    }
+
+    fun toggleMode(context: Context): Settings {
+        val current = load(context)
+        val next = current.copy(mode = if (current.mode == "intelligent") "manual" else "intelligent")
+        save(context, next)
+        return next
+    }
+
+    fun cyclePeriod(context: Context): Settings {
+        val current = load(context)
+        val index = validPeriods.indexOf(current.period).coerceAtLeast(0)
+        val next = current.copy(period = validPeriods[(index + 1) % validPeriods.size])
+        save(context, next)
+        return next
+    }
+
+    fun cycleDepartureCount(context: Context): Settings {
+        val current = load(context)
+        val next = current.copy(departureCount = if (current.departureCount >= 5) 2 else current.departureCount + 1)
+        save(context, next)
+        return next
+    }
+
+    fun cycleReferenceHour(context: Context): Settings {
+        val current = load(context)
+        val next = current.copy(referenceHour = (current.referenceHour + 1) % 24, period = "hour")
+        save(context, next)
+        return next
+    }
+
+    private fun save(context: Context, settings: Settings) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString(KEY_FAVORITE_ID, favoriteId)
-            .putString(KEY_PROFILE_ID, profileId)
-            .putString(KEY_FAVORITE_NAME, favoriteName)
-            .putString(KEY_MODE, mode)
-            .putString(KEY_PERIOD, period)
-            .putInt(KEY_DEPARTURE_COUNT, departureCount)
-            .putInt(KEY_REFERENCE_HOUR, referenceHour)
+            .putString(KEY_FAVORITE_ID, settings.favoriteId)
+            .putString(KEY_PROFILE_ID, settings.profileId)
+            .putString(KEY_FAVORITE_NAME, settings.favoriteName)
+            .putString(KEY_MODE, settings.mode)
+            .putString(KEY_PERIOD, settings.period)
+            .putInt(KEY_DEPARTURE_COUNT, settings.departureCount.coerceIn(2, 5))
+            .putInt(KEY_REFERENCE_HOUR, settings.referenceHour.coerceIn(0, 23))
             .apply()
-        return true
     }
 }
