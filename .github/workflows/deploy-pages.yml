@@ -31,6 +31,11 @@ jobs:
         run: npm run prepare:gtfs
       - name: Build PWA
         run: npm run build
+      - name: Generate Android Digital Asset Links
+        if: ${{ vars.ANDROID_CERT_SHA256 != '' }}
+        env:
+          ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
+        run: node scripts/generate-assetlinks.mjs
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact

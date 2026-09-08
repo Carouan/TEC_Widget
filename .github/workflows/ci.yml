@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -20,3 +20,9 @@ jobs:
       - run: npm run test:planner
       - run: npm run test:gtfs
       - run: npm run build
+      - name: Validate Digital Asset Links generation
+        env:
+          ANDROID_CERT_SHA256: '00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00'
+        run: |
+          node scripts/generate-assetlinks.mjs
+          node -e "const x=require('fs').readFileSync('dist/.well-known/assetlinks.json','utf8'); JSON.parse(x);"
