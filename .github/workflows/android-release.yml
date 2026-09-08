@@ -72,12 +72,32 @@ jobs:
           test -f "$APK"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
 
-          ACTUAL_CERT_SHA256="$($APKSIGNER verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:lower:]' '[:upper:]')"
+          APKSIGNER_OUTPUT="$("$APKSIGNER" verify --verbose --print-certs "$APK")"
+          printf '%s\n' "$APKSIGNER_OUTPUT"
+
+          # apksigner output differs across Build Tools versions, e.g.:
+          #   Signer #1 certificate SHA-256 digest: ...
+          #   V3.0 Signer: certificate SHA-256 digest: ...
+          # Match the semantic certificate digest label rather than a specific signer prefix.
+          ACTUAL_CERT_SHA256="$(printf '%s\n' "$APKSIGNER_OUTPUT" \
+            | sed -nE 's/^.*certificate SHA-256 digest:[[:space:]]*([0-9A-Fa-f:]+).*$/\1/p' \
+            | head -n 1 \
+            | tr '[:lower:]' '[:upper:]')"
+
+          if [ -z "$ACTUAL_CERT_SHA256" ]; then
+            echo "Could not extract certificate SHA-256 digest from apksigner output." >&2
+            exit 1
+          fi
+
           EXPECTED_NORMALIZED="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
           ACTUAL_NORMALIZED="$(printf '%s' "$ACTUAL_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          test -n "$ACTUAL_NORMALIZED"
+
+          if ! [[ "$ACTUAL_NORMALIZED" =~ ^[0-9A-F]{64}$ ]]; then
+            echo "Extracted certificate SHA-256 digest has an invalid format." >&2
+            exit 1
+          fi
+
           test "$ACTUAL_NORMALIZED" = "$EXPECTED_NORMALIZED" || {
             echo "Release certificate fingerprint does not match ANDROID_CERT_SHA256" >&2
             exit 1
