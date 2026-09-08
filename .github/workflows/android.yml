@@ -29,6 +29,19 @@ jobs:
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug --stacktrace
+      - name: Verify release build refuses missing signing material
+        working-directory: android
+        shell: bash
+        run: |
+          set +e
+          gradle assembleRelease > "$RUNNER_TEMP/release-without-signing.log" 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "Release build unexpectedly succeeded without signing configuration." >&2
+            exit 1
+          fi
+          grep -q "Release signing is not configured" "$RUNNER_TEMP/release-without-signing.log"
       - uses: actions/upload-artifact@v4
         with:
           name: tec-widget-android-debug
