@@ -31,6 +31,9 @@ android {
 }
 
 dependencies {
-    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.6.2")
+    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.6.2") {
+        exclude(group = "androidx.browser", module = "browser")
+    }
+    implementation("androidx.browser:browser:1.8.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 }
