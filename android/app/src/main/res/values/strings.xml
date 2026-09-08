@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">TEC Widget</string>
     <string name="widget_description">Affiche les trois prochains passages TEC.</string>
+    <string name="asset_statements" translatable="false">[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"https://carouan.github.io/TEC_Widget/"}}]</string>
 </resources>
