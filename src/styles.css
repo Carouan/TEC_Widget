@@ -15,9 +15,10 @@ button { cursor: pointer; }
 .widget-header, .route-summary, .departures li, .widget-footer, .panel-header, .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .eyebrow, .status-line, .panel-header p, .favorite-card small { color: #64748b; font-size: .8rem; }
 .eyebrow { margin: 0 0 .2rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
-h1, h2 { margin: 0; }
+h1, h2, h3 { margin: 0; }
 h1 { font-size: 1.15rem; }
 h2 { font-size: 1.1rem; }
+h3 { font-size: 1rem; }
 .clock { font-variant-numeric: tabular-nums; font-weight: 700; }
 
 .mode-row { display: flex; align-items: center; gap: .65rem; margin-top: 1rem; }
@@ -51,6 +52,7 @@ h2 { font-size: 1.1rem; }
 .icon-button, .secondary-button, .primary-button { border: 1px solid #cbd5e1; border-radius: .7rem; background: #f8fafc; color: #0f172a; padding: .45rem .7rem; }
 .icon-button { font-size: .82rem; }
 .primary-button { background: #111827; color: white; border-color: #111827; }
+.button-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; }
 
 .panel-dialog { width: min(calc(100% - 2rem), 34rem); border: 1px solid #dbe2ea; border-radius: 1.2rem; padding: 0; background: white; color: #111827; box-shadow: 0 24px 80px rgba(15,23,42,.22); }
 .panel-dialog::backdrop { background: rgba(15,23,42,.4); backdrop-filter: blur(2px); }
@@ -59,6 +61,9 @@ h2 { font-size: 1.1rem; }
 .panel-header p { margin: .25rem 0 0; max-width: 28rem; }
 .close-button { border: 0; background: transparent; font-size: 1.6rem; line-height: 1; color: #64748b; }
 .setting-row { padding: .75rem 0; }
+.android-install { margin-top: .7rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; display: grid; gap: .9rem; }
+.android-install p:not(.eyebrow) { margin: .35rem 0 0; color: #64748b; font-size: .82rem; line-height: 1.45; }
+.android-install-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .favorite-editor { display: grid; gap: .8rem; max-height: min(60vh, 32rem); overflow: auto; padding-right: .15rem; }
 .favorite-card { border: 1px solid #e2e8f0; border-radius: .9rem; padding: .85rem; display: grid; gap: .7rem; }
 .favorite-card label { display: grid; gap: .3rem; font-size: .82rem; color: #475569; }
@@ -71,21 +76,22 @@ h2 { font-size: 1.1rem; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
 #add-favorite { margin-top: .8rem; }
 
-button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #94a3b8; outline-offset: 2px; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid #94a3b8; outline-offset: 2px; }
 
 @media (max-width: 430px) {
   .widget-card { padding: 1rem; border-radius: 1.15rem; }
   .widget-footer { align-items: flex-start; flex-direction: column; }
   .footer-actions { width: 100%; justify-content: flex-end; }
   .habit-grid { grid-template-columns: 1fr; }
+  .android-install-actions { flex-direction: column; }
 }
 
 @media (prefers-color-scheme: dark) {
   :root { background: #020617; color: #e5e7eb; }
   body { background: #020617; }
   .widget-card, .panel-dialog { background: #0f172a; border-color: #263244; color: #e5e7eb; box-shadow: none; }
-  .route-summary, .departures li, .favorite-card { border-color: #263244; }
-  .route-line, .departures span, .eyebrow, .status-line, .panel-header p, .favorite-card label, .favorite-card small, .context-label, .text-button { color: #94a3b8; }
+  .route-summary, .departures li, .favorite-card, .android-install { border-color: #263244; }
+  .route-line, .departures span, .eyebrow, .status-line, .panel-header p, .favorite-card label, .favorite-card small, .context-label, .text-button, .android-install p:not(.eyebrow) { color: #94a3b8; }
   .route-badge, .chip.active, .primary-button { background: #e5e7eb; color: #111827; border-color: #e5e7eb; }
   .swap-button, .chip, .icon-button, .secondary-button, .advanced-hour select, .setting-row select, .favorite-card select, .favorite-card input[type="text"], .favorite-card input[type="time"], .favorite-card .transport-summary { background: #111827; border-color: #334155; color: #e5e7eb; }
   .mode-badge { background: #1e293b; color: #cbd5e1; }
