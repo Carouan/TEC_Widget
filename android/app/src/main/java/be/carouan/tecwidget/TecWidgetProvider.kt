@@ -134,7 +134,7 @@ class TecWidgetProvider : AppWidgetProvider() {
 class TecWidgetWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         return try {
-            TecWidgetProvider.render(applicationContext, ScheduleRepository.load())
+            TecWidgetProvider.render(applicationContext, ScheduleRepository.load(applicationContext))
             Result.success()
         } catch (error: Exception) {
             TecWidgetProvider.renderError(applicationContext, "Données indisponibles")

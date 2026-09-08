@@ -96,7 +96,9 @@
         <div class="android-install-actions">
           <a class="primary-button button-link" href="https://github.com/Carouan/TEC_Widget/releases/download/android-v0.2.1/TEC-Widget-0.2.1.apk">Télécharger l’APK 0.2.1</a>
           <a class="secondary-button button-link" href="https://github.com/Carouan/TEC_Widget/releases/tag/android-v0.2.1" target="_blank" rel="noopener noreferrer">Voir la release</a>
+          <button id="sync-android" type="button" class="secondary-button">Appliquer ces réglages au widget</button>
         </div>
+        <p id="android-sync-status" class="status-line" aria-live="polite">La synchronisation ouvre l’application Android installée et applique le trajet, le mode, la période, l’heure et le nombre de passages affichés ici.</p>
       </section>
     </form>
   </dialog>
@@ -120,5 +122,6 @@
   </dialog>
 
   <script type="module" src="./src/main.js"></script>
+  <script type="module" src="./src/android-sync.js"></script>
 </body>
 </html>
