@@ -22,6 +22,20 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SyncPreferencesActivity"
+            android:exported="true"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="tecwidget"
+                    android:host="sync" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".TecWidgetProvider"
             android:exported="false">
