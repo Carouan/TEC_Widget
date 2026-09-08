@@ -1,6 +1,34 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+val versionProperties = Properties().apply {
+    rootProject.file("version.properties").inputStream().use(::load)
+}
+val appVersionName = versionProperties.getProperty("VERSION_NAME")
+    ?: error("VERSION_NAME is missing from android/version.properties")
+val appVersionCode = versionProperties.getProperty("VERSION_CODE")?.toIntOrNull()
+    ?: error("VERSION_CODE must be an integer in android/version.properties")
+
+val releaseRequested = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+
+if (releaseRequested) {
+    val missing = listOf(
+        "ANDROID_KEYSTORE_PATH" to releaseKeystorePath,
+        "ANDROID_KEYSTORE_PASSWORD" to releaseKeystorePassword,
+        "ANDROID_KEY_ALIAS" to releaseKeyAlias,
+        "ANDROID_KEY_PASSWORD" to releaseKeyPassword,
+    ).filter { it.second.isNullOrBlank() }.map { it.first }
+    check(missing.isEmpty()) {
+        "Release signing is not configured. Missing environment variables: ${missing.joinToString(", ")}"
+    }
 }
 
 android {
@@ -11,13 +39,29 @@ android {
         applicationId = "be.carouan.tecwidget"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+    }
+
+    signingConfigs {
+        if (releaseKeystorePath != null && releaseKeystorePassword != null && releaseKeyAlias != null && releaseKeyPassword != null) {
+            create("release") {
+                storeFile = file(releaseKeystorePath)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
