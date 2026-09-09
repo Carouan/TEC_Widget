@@ -94,8 +94,8 @@
           <p>Installez l’APK stable pour ajouter TEC Widget à l’écran d’accueil Android. Android peut vous demander d’autoriser temporairement l’installation d’applications depuis votre navigateur.</p>
         </div>
         <div class="android-install-actions">
-          <a class="primary-button button-link" href="https://github.com/Carouan/TEC_Widget/releases/download/android-v0.2.1/TEC-Widget-0.2.1.apk">Télécharger l’APK 0.2.1</a>
-          <a class="secondary-button button-link" href="https://github.com/Carouan/TEC_Widget/releases/tag/android-v0.2.1" target="_blank" rel="noopener noreferrer">Voir la release</a>
+          <a id="android-download-link" class="primary-button button-link" href="https://github.com/Carouan/TEC_Widget/releases/latest">Télécharger la dernière APK stable</a>
+          <a id="android-release-link" class="secondary-button button-link" href="https://github.com/Carouan/TEC_Widget/releases/latest" target="_blank" rel="noopener noreferrer">Voir la release</a>
           <button id="sync-android" type="button" class="secondary-button">Appliquer ces réglages au widget</button>
         </div>
         <p id="android-sync-status" class="status-line" aria-live="polite">La synchronisation ouvre l’application Android installée et applique le trajet, le mode, la période, l’heure et le nombre de passages affichés ici.</p>
@@ -123,5 +123,6 @@
 
   <script type="module" src="./src/main.js"></script>
   <script type="module" src="./src/android-sync.js"></script>
+  <script type="module" src="./src/android-release.js"></script>
 </body>
 </html>
