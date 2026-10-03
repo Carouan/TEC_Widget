@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, feature/issue-44-ide-dev-cmd]
 
 jobs:
   build:
