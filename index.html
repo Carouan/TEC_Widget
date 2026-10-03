@@ -65,6 +65,7 @@
         <p id="data-status" class="status-line" aria-live="polite">Chargement des horaires…</p>
         <div class="footer-actions">
           <button id="open-trips" type="button" class="icon-button">Mes trajets</button>
+          <button id="open-feedback" type="button" class="icon-button">Retour</button>
           <button id="open-settings" type="button" class="icon-button" aria-label="Réglages">⚙</button>
         </div>
       </footer>
@@ -100,6 +101,37 @@
         </div>
         <p id="android-sync-status" class="status-line" aria-live="polite">La synchronisation ouvre l’application Android installée et applique le trajet, le mode, la période, l’heure et le nombre de passages affichés ici.</p>
       </section>
+    </form>
+  </dialog>
+
+  <dialog id="feedback-dialog" class="panel-dialog">
+    <form id="feedback-form" class="panel-content">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">DEV-CMD</p>
+          <h2>Retour développeur</h2>
+          <p>Signalez un problème ou demandez une action sans joindre vos trajets ni données locales.</p>
+        </div>
+        <button id="close-feedback" type="button" class="close-button" aria-label="Fermer">×</button>
+      </div>
+      <label class="feedback-field">Type
+        <select id="feedback-action">
+          <option value="ISSUE">Signaler un problème</option>
+          <option value="ANALYZE">Demander une analyse</option>
+          <option value="FIX">Demander une correction</option>
+          <option value="CONTINUE">Continuer le développement</option>
+          <option value="REVIEW">Demander une revue</option>
+        </select>
+      </label>
+      <label class="feedback-field">Description
+        <textarea id="feedback-description" rows="7" required placeholder="Décrivez le comportement observé ou la modification souhaitée."></textarea>
+      </label>
+      <div class="feedback-actions">
+        <button id="feedback-github" type="button" class="primary-button">Créer une issue GitHub</button>
+        <button id="feedback-copy" type="button" class="secondary-button">Copier DEV-CMD</button>
+        <button id="feedback-mail" type="button" class="secondary-button">Préparer un e-mail</button>
+      </div>
+      <p id="feedback-status" class="status-line" aria-live="polite"></p>
     </form>
   </dialog>
 
