@@ -22,12 +22,36 @@ const departureCountSelect = $('#departure-count');
 const settingsDialog = $('#settings-dialog');
 const tripsDialog = $('#trips-dialog');
 const favoriteEditor = $('#favorite-editor');
+const devCmdFeedback = $('#dev-cmd-feedback');
 
 const STORAGE_KEYS = {
   favorites: 'tec-widget.favorites-v1',
   departureCount: 'tec-widget.departure-count',
   referenceHour: 'tec-widget.reference-hour'
 };
+
+function createDevCmdFeedbackUrl() {
+  const requestId = globalThis.crypto?.randomUUID?.() || `tec-${Date.now()}`;
+  const body = [
+    '[DEV-CMD]',
+    '',
+    'PROTOCOL: DEV-CMD/1',
+    'PROJECT: tec-widget',
+    'ACTION: ISSUE',
+    `REQUEST-ID: ${requestId}`,
+    'REPOSITORY: Carouan/TEC_Widget',
+    'VERSION: 0.1.0',
+    '',
+    'DESCRIPTION:',
+    'Décris ici le problème, le comportement attendu ou l’amélioration proposée.'
+  ].join('\n');
+  const params = new URLSearchParams({
+    labels: 'dev-cmd',
+    title: '[DEV-CMD] ISSUE — tec-widget',
+    body
+  });
+  return `https://github.com/Carouan/TEC_Widget/issues/new?${params.toString()}`;
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -427,6 +451,9 @@ departureCountSelect.addEventListener('change', () => {
 });
 
 $('#open-settings').addEventListener('click', () => settingsDialog.showModal());
+devCmdFeedback?.addEventListener('click', () => {
+  devCmdFeedback.href = createDevCmdFeedbackUrl();
+});
 $('#open-trips').addEventListener('click', () => {
   editorDraft = clone(favorites);
   renderFavoriteEditor();
