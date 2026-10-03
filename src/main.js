@@ -1,5 +1,6 @@
 import { defaultFavorites, preparedProfiles } from './config.js';
 import { addDays, dayStart, labelDate, nextSmartPlan, sameDay, toMinutes } from './planner.js';
+import { buildGitHubIssueUrl, buildMailUrl, createDevCmdBlock } from './dev-cmd.js';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -22,6 +23,10 @@ const departureCountSelect = $('#departure-count');
 const settingsDialog = $('#settings-dialog');
 const tripsDialog = $('#trips-dialog');
 const favoriteEditor = $('#favorite-editor');
+const feedbackDialog = $('#feedback-dialog');
+const feedbackAction = $('#feedback-action');
+const feedbackDescription = $('#feedback-description');
+const feedbackStatus = $('#feedback-status');
 
 const STORAGE_KEYS = {
   favorites: 'tec-widget.favorites-v1',
@@ -427,6 +432,43 @@ departureCountSelect.addEventListener('change', () => {
 });
 
 $('#open-settings').addEventListener('click', () => settingsDialog.showModal());
+$('#open-feedback').addEventListener('click', () => {
+  feedbackStatus.textContent = '';
+  feedbackDialog.showModal();
+});
+$('#close-feedback').addEventListener('click', () => feedbackDialog.close());
+$('#feedback-form').addEventListener('submit', (event) => event.preventDefault());
+$('#feedback-github').addEventListener('click', () => {
+  if (!feedbackDescription.value.trim()) {
+    feedbackDescription.focus();
+    return;
+  }
+  window.open(buildGitHubIssueUrl({
+    action: feedbackAction.value,
+    description: feedbackDescription.value
+  }), '_blank', 'noopener,noreferrer');
+});
+$('#feedback-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(createDevCmdBlock({
+      action: feedbackAction.value,
+      description: feedbackDescription.value
+    }));
+    feedbackStatus.textContent = 'Commande DEV-CMD copiée.';
+  } catch {
+    feedbackStatus.textContent = 'Copie automatique impossible sur ce navigateur.';
+  }
+});
+$('#feedback-mail').addEventListener('click', () => {
+  if (!feedbackDescription.value.trim()) {
+    feedbackDescription.focus();
+    return;
+  }
+  location.href = buildMailUrl({
+    action: feedbackAction.value,
+    description: feedbackDescription.value
+  });
+});
 $('#open-trips').addEventListener('click', () => {
   editorDraft = clone(favorites);
   renderFavoriteEditor();
