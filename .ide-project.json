@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "projectId": "tec-widget",
+  "name": "TEC Widget",
+  "summary": "PWA légère pour afficher intelligemment les prochains passages planifiés du réseau TEC.",
+  "tags": [
+    "pwa",
+    "mobility",
+    "transport"
+  ],
+  "ide": {
+    "enabled": true,
+    "autoImport": true
+  },
+  "app": {
+    "type": "pwa",
+    "url": "https://carouan.github.io/TEC_Widget/"
+  },
+  "feedback": {
+    "enabled": true,
+    "protocol": "dev-cmd-v1",
+    "transport": "github-issues"
+  }
+}
