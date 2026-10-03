@@ -1,0 +1,14 @@
+version: 1
+project:
+  id: "tec-widget"
+  name: "TEC Widget"
+ide:
+  enabled: true
+app:
+  type: "pwa"
+  url: "https://carouan.github.io/TEC_Widget/"
+feedback:
+  enabled: true
+  protocol: "dev-cmd-v1"
+  transport: "github-issues"
+  label: "dev-cmd"
