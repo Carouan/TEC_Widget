@@ -96,3 +96,13 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   .swap-button, .chip, .icon-button, .secondary-button, .advanced-hour select, .setting-row select, .favorite-card select, .favorite-card input[type="text"], .favorite-card input[type="time"], .favorite-card .transport-summary { background: #111827; border-color: #334155; color: #e5e7eb; }
   .mode-badge { background: #1e293b; color: #cbd5e1; }
 }
+
+.feedback-field { display: grid; gap: .35rem; margin-top: .8rem; font-size: .82rem; color: #475569; }
+.feedback-field select, .feedback-field textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: .65rem; background: #f8fafc; color: #0f172a; padding: .55rem .65rem; font: inherit; }
+.feedback-field textarea { resize: vertical; min-height: 9rem; line-height: 1.45; }
+.feedback-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+@media (max-width: 430px) { .feedback-actions { flex-direction: column; } .feedback-actions button { width: 100%; } }
+@media (prefers-color-scheme: dark) {
+  .feedback-field { color: #94a3b8; }
+  .feedback-field select, .feedback-field textarea { background: #111827; border-color: #334155; color: #e5e7eb; }
+}
